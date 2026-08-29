@@ -32,29 +32,29 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	# --- 1) Wave 1 is active and dogs start falling
-	var spawned := await _wait_until(func(): return main.dogs.size() > 0, 5000, "first dog to spawn")
+	# --- 1) Wave 1 is active and rats start falling
+	var spawned := await _wait_until(func(): return main.rats.size() > 0, 5000, "first rat to spawn")
 	if not spawned:
 		errors += 1
 
-	# --- 2) Park a dog and shoot it: missile + explosion must kill it
-	main._spawn_dog()
+	# --- 2) Park a rat and shoot it: missile + explosion must kill it
+	main._spawn_rat()
 	await process_frame
-	var dog = main.dogs[main.dogs.size() - 1]
-	dog.velocity = Vector2.ZERO  # park it so the shot is fair
+	var rat = main.rats[main.rats.size() - 1]
+	rat.velocity = Vector2.ZERO  # park it so the shot is fair
 	var turret = main.turrets[0]
 	turret.cooldown = 0.0
-	main._fire_at(dog.position)
-	var killed := await _wait_until(func(): return not main.dogs.has(dog), 6000, "shot dog to be killed")
+	main._fire_at(rat.position)
+	var killed := await _wait_until(func(): return not main.rats.has(rat), 6000, "shot rat to be killed")
 	if not killed:
 		errors += 1
 	if main.score < 10:
-		push_error("FAIL: no score awarded for dog kill (score=%d)" % main.score)
+		push_error("FAIL: no score awarded for rat kill (score=%d)" % main.score)
 		errors += 1
 
 	# --- 3) Clear the sky -> wave break -> wave 2
-	main.dogs_to_spawn = 0
-	for d in main.dogs.duplicate():
+	main.rats_to_spawn = 0
+	for d in main.rats.duplicate():
 		d.dead = true
 	var broke := await _wait_until(func(): return main.state == main.State.WAVE_BREAK, 5000, "wave break")
 	if not broke:

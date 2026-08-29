@@ -1,6 +1,6 @@
 # AGENTS.md — Meow Command
 
-Cute Missile Command clone: dogs rain from the sky, cats in cannons defend
+Cute Missile Command clone: rats rain from the sky, cats in cannons defend
 Kitty City. Godot **4.7.2 stable, GDScript** (pinned — do not upgrade casually).
 
 ## Run
@@ -24,7 +24,7 @@ All must exit 0. Never trust an edit you haven't validated headlessly.
 ## Layout
 
 - `scripts/game.gd` — game controller (waves, scoring, input, cleanup)
-- `scripts/dog_missile.gd`, `player_missile.gd`, `explosion.gd` — entities
+- `scripts/rat_missile.gd`, `player_missile.gd`, `explosion.gd` — entities
 - `scripts/city.gd`, `turret.gd` — defenses
 - `scripts/background.gd`, `palette.gd`, `sfx.gd` — presentation
 - All art is procedural (`_draw()`) — no texture assets. Retheme via `palette.gd`.

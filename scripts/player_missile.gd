@@ -7,7 +7,7 @@ const SPEED := 700.0
 
 var velocity := Vector2.ZERO
 var target := Vector2.ZERO
-var exploded := false  # reached its endpoint (or hit a dog)
+var exploded := false  # reached its endpoint (or hit a rat)
 var boomed := false  # an explosion was already spawned for it
 
 

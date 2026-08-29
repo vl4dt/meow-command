@@ -1,25 +1,30 @@
 # Meow Command
 
-> Cute Missile Command clone: **dogs rain from the sky, cats in cannons defend
+> Cute Missile Command clone: **rats rain from the sky, cats in cannons defend
 > Kitty City.** One-tap arcade defense — Godot 4.7.2, 100% procedural art and
 > sound (zero image/audio assets).
 
 ## What it is
 
-A fast, cozy arcade shooter. Dog missiles streak down at your cat houses and
-turrets; you tap/click to fire star missiles from the nearest cat turret and
-pop chains of explosions to clear the sky. Endless waves with rising speed and
-swarm size, score + best-score persistence, wave-clear bonuses, and an instant
-restart loop. The whole game is drawn in code (`_draw()`) and the SFX/music
-are synthesized at startup — the project ships with no binary assets at all.
+A fast, cozy arcade shooter. Rats streak down from the sky at your cat houses
+and turrets; you tap/click to fire star missiles from the nearest cat turret
+and pop chains of explosions to clear the sky. Endless waves with rising speed
+and swarm size, score + best-score persistence, wave-clear bonuses, and an
+instant restart loop. Two depth mechanics keep runs spicy: **Splitting Rats**
+(bigger rats that burst into two fast, skittish pups when you pop them) and a
+**rolling Combo multiplier** (chain kills within 2.5 s to stack up to ×5
+points). The whole game is drawn in code (`_draw()`) and the SFX/music are
+synthesized at startup — the project ships with no binary assets at all.
 
 Core loop:
 
-1. Wave starts — dog swarm spawns (4 + 2×wave, capped at 26).
+1. Wave starts — rat swarm spawns (4 + 2×wave, capped at 26).
 2. Tap to fire; nearest live turret launches a star missile (0.32 s cooldown).
-3. Missiles that touch dogs detonate; growing explosions chain-pop nearby dogs.
-4. Sky cleared → wave bonus (100×wave + 25×alive buildings) → next wave, faster.
-5. All buildings **or** all turrets destroyed → game over → tap to retry.
+3. Missiles that touch rats detonate; growing explosions chain-pop nearby rats.
+4. Splitting Rats (wave 3+) burst into two fast pups — pop them before they scatter.
+5. Chain kills within 2.5 s to stack the Combo multiplier (up to ×5 points).
+6. Sky cleared → wave bonus (25 + 10×wave) → next wave, faster.
+7. All buildings **or** all turrets destroyed → game over → tap to retry.
 
 ## Target award(s)
 
@@ -60,6 +65,7 @@ equivalent per Shipaton rules).
 
 - ✅ Core gameplay complete (waves, firing, chain explosions, scoring,
   game over/restart) — verified by headless tests
+- ✅ Depth mechanics: Splitting Rats (wave 3+) + rolling Combo multiplier (×5 cap)
 - ✅ Headless verification gate green (`verify.ps1`)
 - ⬜ Touch input tuning, mobile-safe portrait/landscape layout
 - ⬜ RevenueCat SDK integration (IAP + optional Ads)
@@ -99,3 +105,4 @@ Dated entries — installs, revenue, experiments, learnings.
 | Date | Event | Numbers | Learning |
 |------|-------|---------|----------|
 | 2026-08-28 | Core gameplay complete; headless gate green | 9 scripts, 2 test harnesses | Pipeline-first (procedural art) keeps asset cost at zero |
+| 2026-08-28 | Splitting Rats + rolling Combo multiplier (×5 cap); dog→rat rebrand | +2 depth mechanics | Depth without new assets; rebrand keeps tone (cats = heroes, rats = baddies) |

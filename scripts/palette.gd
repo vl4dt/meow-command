@@ -37,14 +37,15 @@ const CAT_EYE := Color("#3a2e2a")
 const CAT_CHEEK := Color("#ff9eb5")
 const TURRET_DEAD := Color("#b8b0ad")
 
-# --- Dogs ---
-const DOG_BODY := Color("#d9a066")
-const DOG_EAR := Color("#a9744f")
-const DOG_MUZZLE := Color("#f3d3b3")
-const DOG_EYE := Color("#3a2e2a")
-const DOG_NOSE := Color("#4a3728")
-const DOG_TONGUE := Color("#ff8fa3")
-const DOG_TRAIL := Color("#ffc98a")
+# --- Rats (the invaders) ---
+const RAT_BODY := Color("#d9a066")
+const RAT_SPLITTER := Color("#c96a4a")
+const RAT_EAR := Color("#a9744f")
+const RAT_MUZZLE := Color("#f3d3b3")
+const RAT_EYE := Color("#3a2e2a")
+const RAT_NOSE := Color("#4a3728")
+const RAT_TONGUE := Color("#ff8fa3")
+const RAT_TRAIL := Color("#ffc98a")
 
 # --- Player & FX ---
 const PLAYER_MISSILE := Color("#6fd3ff")

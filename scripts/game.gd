@@ -1,5 +1,5 @@
 extends Node2D
-## Meow Command — defend the cute cat city from the dog missile attack!
+## Meow Command — defend the cute cat city from the rat swarm attack!
 ## Click to fire. Nearest live turret pops a star missile at your cursor.
 
 enum State { PLAYING, WAVE_BREAK, GAME_OVER }
@@ -9,8 +9,14 @@ const GROUND_Y := 664.0
 const CITY_XS := [300.0, 640.0, 980.0]
 const TURRET_XS := [150.0, 470.0, 810.0, 1130.0]
 const TURRET_Y := 652.0
-const DOG_SPAWN_Y := -30.0
+const RAT_SPAWN_Y := -30.0
 const EXPLOSION_RADIUS := 55.0
+const MAX_RATS := 40  # hard cap on live rats (splitter children can briefly exceed)
+
+# Combo (rolling window): kills within COMBO_WINDOW of each other chain a
+# multiplier on per-rat points. Wave-clear bonuses stay flat.
+const COMBO_WINDOW := 2.5
+const COMBO_CAP := 5.0
 
 const SfxScript = preload("res://scripts/sfx.gd")
 
@@ -18,15 +24,20 @@ var state: int = State.PLAYING
 var score := 0
 var best := 0
 var wave := 1
-var dogs_to_spawn := 0
+var rats_to_spawn := 0
 var spawn_timer := 0.0
 var wave_break_timer := 0.0
+var splitters_this_wave := 0
+
+# Combo state
+var combo := 0
+var combo_timer := 0.0
 
 var sfx: Node
 var world: Node2D
 var cities: Array = []
 var turrets: Array = []
-var dogs: Array = []
+var rats: Array = []
 var missiles: Array = []
 var explosions: Array = []
 
@@ -34,6 +45,8 @@ var score_label: Label
 var wave_label: Label
 var best_label: Label
 var banner_label: Label
+var combo_label: Label
+var combo_bar: ColorRect
 var gameover_layer: CanvasLayer
 var final_label: Label
 
@@ -95,33 +108,39 @@ func _build_hud() -> void:
 	banner_label.modulate.a = 0.0
 	hud.add_child(banner_label)
 
+	# Combo readout (top-center, below the wave label) with a draining bar.
+	combo_label = _make_label(0, 48, 24, Palette.UI_ACCENT)
+	combo_label.visible = false
+	hud.add_child(combo_label)
+	combo_bar = ColorRect.new()
+	combo_bar.color = Palette.UI_ACCENT
+	combo_bar.position = Vector2(SCREEN.x / 2.0 - 60.0, 76.0)
+	combo_bar.size = Vector2(120.0, 4.0)
+	combo_bar.visible = false
+	hud.add_child(combo_bar)
+
 	# Game-over overlay
 	gameover_layer = CanvasLayer.new()
 	gameover_layer.name = "GameOver"
-	gameover_layer.layer = 10
+	gameover_layer.layer = 20
+	gameover_layer.visible = false
 	add_child(gameover_layer)
+
 	var dim := ColorRect.new()
 	dim.color = Palette.OVERLAY_DIM
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.position = Vector2.ZERO
+	dim.size = SCREEN
 	gameover_layer.add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	gameover_layer.add_child(center)
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	center.add_child(box)
-	var title := _make_label(0, 0, 64, Palette.UI_TEXT)
-	title.text = "GAME OVER"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
-	final_label = _make_label(0, 0, 30, Palette.UI_TEXT)
-	final_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(final_label)
-	var hint := _make_label(0, 0, 24, Palette.UI_ACCENT)
-	hint.text = "click to try again"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint)
-	gameover_layer.visible = false
+
+	final_label = _make_label(0, 250, 40, Palette.UI_TEXT)
+	gameover_layer.add_child(final_label)
+
+	var again := Button.new()
+	again.text = "PLAY AGAIN"
+	again.position = Vector2(SCREEN.x / 2.0 - 110.0, 380.0)
+	again.size = Vector2(220, 64)
+	again.pressed.connect(_restart)
+	gameover_layer.add_child(again)
 
 
 func _make_label(x: float, y: float, size: int, color: Color) -> Label:
@@ -129,8 +148,9 @@ func _make_label(x: float, y: float, size: int, color: Color) -> Label:
 	l.position = Vector2(x, y)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color("white", 0.85))
-	l.add_theme_constant_override("outline_size", 5)
+	l.add_theme_color_override("font_shadow_color", Color("white", 0.6))
+	l.add_theme_constant_override("shadow_offset_x", 2)
+	l.add_theme_constant_override("shadow_offset_y", 2)
 	return l
 
 
@@ -145,25 +165,38 @@ func _update_hud() -> void:
 	best_label.position.x = SCREEN.x - 26.0 - best_label.get_minimum_size().x
 
 
-func _show_banner(text: String, duration: float = 2.4) -> void:
+func _update_combo_hud() -> void:
+	if combo_label == null:
+		return
+	if combo >= 2:
+		combo_label.visible = true
+		combo_label.text = "COMBO %s" % _fmt_mult(_combo_multiplier())
+		combo_label.position.x = SCREEN.x / 2.0 - combo_label.get_minimum_size().x / 2.0
+		combo_bar.visible = true
+		combo_bar.size.x = 120.0 * clampf(combo_timer / COMBO_WINDOW, 0.0, 1.0)
+	else:
+		combo_label.visible = false
+		combo_bar.visible = false
+
+
+func _show_banner(text: String) -> void:
+	if banner_label == null:
+		return
 	banner_label.text = text
 	banner_label.position.x = SCREEN.x / 2.0 - banner_label.get_minimum_size().x / 2.0
 	banner_label.modulate.a = 1.0
 	var tw := create_tween()
-	tw.tween_property(banner_label, "modulate:a", 0.0, 1.2).set_delay(maxf(0.2, duration - 1.2))
+	tw.tween_property(banner_label, "modulate:a", 1.0, 0.9)
+	tw.tween_property(banner_label, "modulate:a", 0.0, 0.7)
 
 
 func _score_popup(pos: Vector2, text: String) -> void:
-	var l := Label.new()
+	var l := _make_label(0, 0, 22, Palette.UI_ACCENT)
 	l.text = text
-	l.position = pos
-	l.add_theme_font_size_override("font_size", 18)
-	l.add_theme_color_override("font_color", Palette.UI_ACCENT)
-	l.add_theme_color_override("font_outline_color", Color("white", 0.9))
-	l.add_theme_constant_override("outline_size", 4)
+	l.position = pos - l.get_minimum_size() / 2.0
 	world.add_child(l)
 	var tw := create_tween()
-	tw.tween_property(l, "position:y", pos.y - 42.0, 0.7)
+	tw.tween_property(l, "position:y", l.position.y - 46.0, 0.7)
 	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.7)
 	tw.tween_callback(l.queue_free)
 
@@ -172,53 +205,68 @@ func _score_popup(pos: Vector2, text: String) -> void:
 
 func _start_wave(n: int) -> void:
 	wave = n
-	dogs_to_spawn = mini(4 + n * 2, 26)
+	rats_to_spawn = mini(4 + n * 2, 26)
+	splitters_this_wave = 0
 	spawn_timer = 1.2
 	state = State.PLAYING
-	_show_banner("WAVE %d — the dogs are coming!" % n)
+	_show_banner("WAVE %d — the rats are coming!" % n)
 	sfx.play("wave")
 	_update_hud()
 
 
-func _spawn_dog() -> void:
-	var from := Vector2(randf_range(60.0, SCREEN.x - 60.0), DOG_SPAWN_Y)
+func _spawn_rat() -> void:
+	var from := Vector2(randf_range(60.0, SCREEN.x - 60.0), RAT_SPAWN_Y)
 	var target := _pick_target()
 	var speed := minf(randf_range(42.0, 60.0) + wave * 7.0, 190.0)
-	var dog := DogMissile.new()
-	dog.name = "Dog%d" % dogs.size()
-	world.add_child(dog)
-	dog.launch(from, target, speed)
-	dogs.append(dog)
+	var rat := RatMissile.new()
+	# Splitter rats (wave 3+): bigger, +25, split into 2 fast children on kill.
+	if wave >= 3 and splitters_this_wave < 3 and randf() < 0.12:
+		rat.kind = RatMissile.Kind.SPLITTER
+		splitters_this_wave += 1
+	rat.name = "Rat%d" % rats.size()
+	world.add_child(rat)
+	rat.launch(from, target, speed)
+	rats.append(rat)
+
+
+## A killed splitter splits into 2 small, fast, non-splitting children that
+## scatter toward random targets. Brief spawn-grace so the split reads clearly.
+func _spawn_splitter_children(at: Vector2) -> void:
+	for i in 2:
+		var child := RatMissile.new()
+		child.kind = RatMissile.Kind.CHILD
+		child.name = "Rat%d" % rats.size()
+		world.add_child(child)
+		var t := _pick_target()
+		var speed := minf(randf_range(55.0, 75.0) + wave * 7.0, 230.0)
+		var offset := Vector2(randf_range(-14.0, 14.0), randf_range(-6.0, 6.0))
+		child.launch(at + offset, t, speed)
+		child.spawn_grace = 1.0
+		rats.append(child)
 
 
 func _pick_target() -> Vector2:
-	var options: Array = []
+	var points: Array = []
 	for c in cities:
-		options.append_array(c.target_points())
-	# Sometimes the dogs go straight for a turret
-	if randf() < 0.25:
-		var alive_turrets: Array = []
-		for t in turrets:
-			if t.alive:
-				alive_turrets.append(t.position + Vector2(0, -16))
-		if not alive_turrets.is_empty():
-			return alive_turrets[randi() % alive_turrets.size()]
-	if options.is_empty():
+		points.append_array(c.target_points())
+	for t in turrets:
+		points.append(t.position)
+	if points.is_empty():
 		return Vector2(SCREEN.x / 2.0, GROUND_Y)
-	return options[randi() % options.size()]
+	# Sometimes the rats go straight for the turrets to keep pressure on.
+	if randf() < 0.35:
+		for t in turrets:
+			if t.alive and randf() < 0.5:
+				return t.position
+	return points[randi() % points.size()]
 
 
 func _end_wave() -> void:
-	# Defensive: if the city is gone, the game is over — no bonus, no next wave.
-	if _alive_buildings() == 0:
-		_game_over()
-		return
-	var bonus := 100 * wave + 25 * _alive_buildings()
-	_score(bonus)
-	_score_popup(Vector2(SCREEN.x / 2.0, 320.0), "+%d" % bonus)
 	state = State.WAVE_BREAK
 	wave_break_timer = 2.6
-	_show_banner("WAVE %d CLEARED!" % wave)
+	var bonus := 25 + wave * 10
+	_score(bonus)
+	_show_banner("WAVE CLEARED  + %d" % bonus)
 	sfx.play("wave")
 
 
@@ -228,7 +276,11 @@ func _process(delta: float) -> void:
 	var mouse := get_viewport().get_mouse_position()
 	for t in turrets:
 		t.update_aim(mouse)
-
+	# Combo decay (runs in every state so it expires during wave breaks too)
+	if combo > 0:
+		combo_timer -= delta
+		if combo_timer <= 0.0:
+			combo = 0
 	match state:
 		State.PLAYING:
 			_update_playing(delta)
@@ -236,66 +288,66 @@ func _process(delta: float) -> void:
 			wave_break_timer -= delta
 			if wave_break_timer <= 0.0:
 				_start_wave(wave + 1)
-
 	_cleanup()
+	_update_combo_hud()
 
 
 func _update_playing(delta: float) -> void:
-	# Spawn the dog swarm
-	if dogs_to_spawn > 0:
+	# Spawn the rat swarm (capped so splitter children can't run away)
+	if rats_to_spawn > 0 and rats.size() < MAX_RATS:
 		spawn_timer -= delta
 		if spawn_timer <= 0.0:
-			_spawn_dog()
-			dogs_to_spawn -= 1
+			_spawn_rat()
+			rats_to_spawn -= 1
 			spawn_timer = maxf(0.22, 0.95 - wave * 0.05) * randf_range(0.7, 1.3)
 
-	# Missiles that clip a dog explode early
+	# Missiles that clip a rat explode early
 	for m in missiles:
 		if m.exploded:
 			continue
-		for d in dogs.duplicate():
-			if d.landed or d.dead:
+		for d in rats.duplicate():
+			if d.landed or d.dead or d.spawn_grace > 0.0:
 				continue
-			if (m.position - d.position).length() < PlayerMissile.RADIUS + DogMissile.RADIUS:
+			if (m.position - d.position).length() < PlayerMissile.RADIUS + d.get_radius():
 				m.position = d.position
 				m.exploded = true
 				m.boomed = true
 				_spawn_explosion(m.position, EXPLOSION_RADIUS, true)
-				_kill_dog(d)
+				_kill_rat(d)
 				sfx.play("pop")
 				break
 
-	# Growing explosions pop any dogs inside them
+	# Growing explosions pop any rats inside them
 	for e in explosions:
-		if e.done or not e.kills_dogs:
+		if e.done or not e.kills_rats:
 			continue
 		var r: float = e.current_radius()
 		if r < 4.0:
 			continue
-		for d in dogs.duplicate():
-			if d.landed or d.dead:
+		for d in rats.duplicate():
+			if d.landed or d.dead or d.spawn_grace > 0.0:
 				continue
-			if (e.position - d.position).length() < r + DogMissile.RADIUS:
-				_kill_dog(d)
+			if (e.position - d.position).length() < r + d.get_radius():
+				_kill_rat(d)
 				sfx.play("pop")
 
 	# Wave complete when the sky is clear
-	if dogs_to_spawn == 0 and dogs.is_empty() and missiles.is_empty():
+	if rats_to_spawn == 0 and rats.is_empty() and missiles.is_empty():
 		_end_wave()
 
 
 func _cleanup() -> void:
-	var i := dogs.size() - 1
+	var i := rats.size() - 1
 	while i >= 0:
-		var d: DogMissile = dogs[i]
+		var d: RatMissile = rats[i]
 		if not is_instance_valid(d):
-			dogs.remove_at(i)
+			rats.remove_at(i)
 		elif d.dead:
-			dogs.remove_at(i)
+			rats.remove_at(i)
 			d.queue_free()
 		elif d.landed:
-			_dog_landed(d)
-			dogs.remove_at(i)
+			_rat_landed(d)
+			rats.remove_at(i)
 			d.queue_free()
 		i -= 1
 
@@ -305,9 +357,11 @@ func _cleanup() -> void:
 		if not is_instance_valid(m):
 			missiles.remove_at(j)
 		elif m.exploded:
-			missiles.remove_at(j)
+			# An endpoint hit that never clipped a rat still pops a boom.
 			if not m.boomed:
 				_spawn_explosion(m.position, EXPLOSION_RADIUS, true)
+				sfx.play("explosion")
+			missiles.remove_at(j)
 			m.queue_free()
 		j -= 1
 
@@ -326,62 +380,87 @@ func _cleanup() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if state == State.GAME_OVER:
-			_restart()
-		elif state == State.PLAYING:
+		if state == State.PLAYING:
 			_fire_at(event.position)
+	elif event.is_action_pressed("ui_cancel"):
+		if state != State.GAME_OVER:
+			get_tree().quit()
 
 
 func _fire_at(pos: Vector2) -> void:
-	var chosen: Turret = null
+	var best_turret: Turret = null
 	var best_d := INF
 	for t in turrets:
 		if not t.alive:
 			continue
-		var d := absf(t.position.x - pos.x)
+		var d: float = t.position.distance_to(pos)
 		if d < best_d:
 			best_d = d
-			chosen = t
-	if chosen == null:
+			best_turret = t
+	if best_turret == null:
 		return
-	if chosen.try_fire(pos):
-		var m := PlayerMissile.new()
-		m.name = "Missile%d" % missiles.size()
-		world.add_child(m)
-		m.launch(chosen.position + Vector2(0, -30), pos)
-		missiles.append(m)
-		sfx.play("launch")
+	# Gate on cooldown first; try_fire() arms the turret if it can fire.
+	if not best_turret.try_fire(pos):
+		return
+	var m := PlayerMissile.new()
+	m.name = "Shot%d" % missiles.size()
+	world.add_child(m)
+	m.launch(best_turret.position, pos)
+	missiles.append(m)
+	sfx.play("launch")
 
 
 # ------------------------------------------------------------- events
 
-func _kill_dog(d: DogMissile) -> void:
-	if not dogs.has(d):
+func _kill_rat(d: RatMissile) -> void:
+	if not rats.has(d):
 		return
 	d.dead = true
-	dogs.erase(d)
+	rats.erase(d)
 	d.queue_free()
-	_score(10)
-	_score_popup(d.position + Vector2(0, -20.0), "+10")
+	# Combo: this kill extends the chain and sets the multiplier for scoring.
+	combo += 1
+	combo_timer = COMBO_WINDOW
+	var pts := _rat_points(d)
+	_score(pts)
+	_score_popup(d.position + Vector2(0, -20.0), "+%d" % pts)
 	_spawn_explosion(d.position, 24.0, false)
+	if d.kind == RatMissile.Kind.SPLITTER:
+		_spawn_splitter_children(d.position)
 
 
-func _dog_landed(d: DogMissile) -> void:
-	var p: Vector2 = d.position
-	_spawn_explosion(p, 26.0, false)
-	sfx.play("city_hit")
-	var hit := false
+## Base points per kind, scaled by the current combo multiplier.
+func _rat_points(d: RatMissile) -> int:
+	var base := 10
+	match d.kind:
+		RatMissile.Kind.SPLITTER:
+			base = 25
+		RatMissile.Kind.CHILD:
+			base = 15
+	return int(roundf(base * _combo_multiplier()))
+
+
+func _combo_multiplier() -> float:
+	if combo <= 1:
+		return 1.0
+	return minf(1.0 + 0.25 * (combo - 1), COMBO_CAP)
+
+
+func _fmt_mult(m: float) -> String:
+	if absf(m - roundf(m)) < 0.001:
+		return "×%d" % int(roundf(m))
+	return "×%.2f" % m
+
+
+func _rat_landed(d: RatMissile) -> void:
+	# Damage the nearest building (or a turret's city) and rattle it.
 	for c in cities:
-		if c.damage_nearest(p, 40.0):
-			hit = true
-			break
-	if not hit:
-		for t in turrets:
-			if t.alive and (t.position - p).length() < 40.0:
-				t.alive = false
-				t.queue_redraw()
-				hit = true
-				break
+		if c.damage_nearest(d.position):
+			_spawn_explosion(d.position, 18.0, false)
+			sfx.play("city_hit")
+			return
+	_spawn_explosion(d.position, 18.0, false)
+	sfx.play("city_hit")
 	_check_game_over()
 
 
@@ -390,23 +469,16 @@ func _spawn_explosion(pos: Vector2, radius: float, kills: bool) -> void:
 	e.name = "Boom%d" % explosions.size()
 	e.position = pos
 	e.max_radius = radius
-	e.kills_dogs = kills
+	e.kills_rats = kills
 	world.add_child(e)
 	explosions.append(e)
 
 
 func _check_game_over() -> void:
-	if state != State.PLAYING and state != State.WAVE_BREAK:
+	var alive := _alive_buildings()
+	if alive > 0:
 		return
-	var alive_buildings := 0
-	for c in cities:
-		alive_buildings += c.alive_count()
-	var alive_turrets := 0
-	for t in turrets:
-		if t.alive:
-			alive_turrets += 1
-	if alive_buildings == 0 or alive_turrets == 0:
-		_game_over()
+	_game_over()
 
 
 func _game_over() -> void:
@@ -415,7 +487,7 @@ func _game_over() -> void:
 		best = score
 		_save_best()
 	_update_hud()
-	final_label.text = "final score %d — the dogs got the last biscuit" % score
+	final_label.text = "final score %d — the rats got the last biscuit" % score
 	gameover_layer.visible = true
 	sfx.play("game_over")
 
@@ -426,10 +498,13 @@ func _restart() -> void:
 		world = null
 	cities.clear()
 	turrets.clear()
-	dogs.clear()
+	rats.clear()
 	missiles.clear()
 	explosions.clear()
 	score = 0
+	combo = 0
+	combo_timer = 0.0
+	splitters_this_wave = 0
 	state = State.PLAYING
 	gameover_layer.visible = false
 	_build_world()
@@ -453,13 +528,14 @@ func _score(points: int) -> void:
 
 
 func _load_best() -> void:
-	if FileAccess.file_exists("user://best_score.save"):
-		var f := FileAccess.open("user://best_score.save", FileAccess.READ)
-		if f:
-			best = f.get_32()
+	var f := FileAccess.open("user://best_score.save", FileAccess.READ)
+	if f != null:
+		best = f.get_32()
+		f.close()
 
 
 func _save_best() -> void:
 	var f := FileAccess.open("user://best_score.save", FileAccess.WRITE)
-	if f:
+	if f != null:
 		f.store_32(best)
+		f.close()

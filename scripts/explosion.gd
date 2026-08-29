@@ -1,6 +1,6 @@
 class_name Explosion
 extends Node2D
-## A soft pastel boom. Grows, holds, then shrinks — pops any dogs inside.
+## A soft pastel boom. Grows, holds, then shrinks — pops any rats inside.
 
 const LIFE := 0.95
 const GROW_TIME := 0.4
@@ -9,7 +9,7 @@ const HOLD_TIME := 0.25
 var max_radius := 55.0
 var age := 0.0
 var done := false
-var kills_dogs := true
+var kills_rats := true
 
 
 func _process(delta: float) -> void:

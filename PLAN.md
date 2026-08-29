@@ -18,28 +18,30 @@ submission by **~Sep 15**.
 ### Phase 0 — Core game ✅ (done 2026-08-28)
 
 - [x] Godot 4.7.2 scaffold, main scene, procedural art + SFX
-- [x] Gameplay: waves, dog spawning, turret firing, chain explosions,
-      scoring, best-score persistence, game over, restart
+- [x] Gameplay: waves, rat spawning, turret firing, chain explosions,
+	  scoring, best-score persistence, game over, restart
+- [x] Depth: Splitting Rats (wave 3+, split into 2 fast pups) + rolling
+	  Combo multiplier (2.5 s window, ×5 cap) + dog→rat rebrand
 - [x] Headless gate: `verify.ps1` (import → parse → smoke → gameplay sim →
-      300-frame run), sandbox-tolerant
+	  300-frame run), sandbox-tolerant
 - [x] Docs: README.md, PLAN.md, PROJECTS.md entry
 - [x] Repo: GitHub `vl4dt/meow-command`
 
 ### Phase 1 — Mobile-ready (next)
 
 - [ ] Touch input: tap-to-fire works with `InputEventScreenTouch`; verify
-      `_unhandled_input` path; consider hold-to-aim
+	  `_unhandled_input` path; consider hold-to-aim
 - [ ] Layout: confirm `canvas_items` + `expand` stretch looks right in
-      portrait (19.5:9) and landscape; HUD safe-area insets (notches)
+	  portrait (19.5:9) and landscape; HUD safe-area insets (notches)
 - [ ] Performance: 60 fps on a mid-range Android device; profile explosion
-      count; cap simultaneous dogs/explosions if needed
+	  count; cap simultaneous rats/explosions if needed
 - [ ] Pause on app focus loss; audio unlock on first touch (Android)
 - [ ] Optional: haptics on hits (Android `Input.vibrate`, iOS via plugin)
 
 ### Phase 2 — Monetization (RevenueCat)
 
 - [ ] RevenueCat SDK via GDExtension (`purchases` native SDKs: Android Kotlin /
-      iOS Swift, or Godot Purchases plugin)
+	  iOS Swift, or Godot Purchases plugin)
 - [ ] Products: Kitty Pack (cosmetic themes), extra packs, Remove Ads
 - [ ] Paywall screen (in-app, cute) + judge promo code path
 - [ ] Optional: RevenueCat Ads interstitial on game-over (Catvertising stretch)
@@ -48,7 +50,7 @@ submission by **~Sep 15**.
 ### Phase 3 — Exports & store assets
 
 - [ ] Android: export template install, AAB build, signing key, Play Console
-      + Galaxy Store listings
+	  + Galaxy Store listings
 - [ ] iOS: export on macOS, provisioning, App Store Connect listing
 - [ ] Desktop: Windows/macOS/Linux releases (local dev + itch.io)
 - [ ] Icon 1024×1024 (from `icon.svg`), screenshot 1179×2556 frameless
@@ -59,7 +61,7 @@ submission by **~Sep 15**.
 - [ ] Devpost entry (text + video + store URL + assets)
 - [ ] Judge promo code live
 - [ ] Growth experiments logged in README growth log (needed for
-      Grand Prize path if we keep shipping)
+	  Grand Prize path if we keep shipping)
 
 ## Risks & notes
 
