@@ -21,6 +21,20 @@ static var stats: Dictionary = {
 }
 static var daily: Dictionary = {"date": 0, "score": 0}
 
+## Trophy shelf: id -> "Name — description".
+const ACHIEVEMENTS := {
+	"first_kill": "First Pounce — pop your first rat",
+	"combo5": "Chain Reaction — reach a ×2 combo",
+	"combo13": "Cat-nado — reach a ×4 combo",
+	"king_slayer": "Rat King Slayer — defeat the Rat King",
+	"wave5": "Survivor — reach wave 5",
+	"wave10": "Veteran — reach wave 10",
+	"kills50": "Sharpshooter — pop 50 rats in one run",
+	"score1000": "Century Club — score 1000 in one run",
+	"biscuits100": "Biscuit Baker — earn 100 biscuits total",
+	"collector": "Collector — own every cat skin",
+}
+
 
 static func load_all() -> void:
 	var f := FileAccess.open(PATH, FileAccess.READ)
@@ -66,6 +80,10 @@ static func save_all() -> void:
 ## True when `id` (e.g. "theme_sakura") is owned or the default freebie.
 static func has(id: String) -> bool:
 	return owned.has(id)
+
+
+static func has_achievement(id: String) -> bool:
+	return achievements.has(id)
 
 
 ## Today's seed (yyyymmdd) for the daily challenge.

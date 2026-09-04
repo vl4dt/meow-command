@@ -89,6 +89,7 @@ var power_drops: Array = []
 var title_screen: Node
 var pause_screen: Node
 var howto_screen: Node
+var shop_screen: Node
 
 var hud_layer: CanvasLayer
 var score_label: Label
@@ -112,6 +113,7 @@ var copy_btn: Button
 func _ready() -> void:
 	randomize()
 	Meta.load_all()
+	Palette.apply_theme(Meta.theme)
 	best = Meta.best
 	sound_on = Meta.sound_on
 	sfx = SfxScript.new()
@@ -273,6 +275,10 @@ func _build_screens() -> void:
 	add_child(howto_screen)
 	howto_screen.setup(self)
 
+	shop_screen = ShopScreen.new()
+	add_child(shop_screen)
+	shop_screen.setup(self)
+
 
 func _build_gameover() -> void:
 	gameover_layer = CanvasLayer.new()
@@ -310,9 +316,10 @@ func _build_gameover() -> void:
 	newbest_label.rotation = -0.18
 	gameover_layer.add_child(newbest_label)
 
-	_make_button("PLAY AGAIN", Vector2(540.0, 430.0), func(): _restart_run(), gameover_layer)
-	copy_btn = _make_button("COPY SCORE", Vector2(540.0, 510.0), _copy_score, gameover_layer)
-	_make_button("MENU", Vector2(540.0, 590.0), func(): _to_title(), gameover_layer)
+	_make_button("PLAY AGAIN", Vector2(540.0, 396.0), func(): _restart_run(), gameover_layer)
+	_make_button("SHOP", Vector2(540.0, 468.0), func(): _show_shop(), gameover_layer)
+	copy_btn = _make_button("COPY SCORE", Vector2(540.0, 540.0), _copy_score, gameover_layer)
+	_make_button("MENU", Vector2(540.0, 612.0), func(): _to_title(), gameover_layer)
 
 
 func _make_label(x: float, y: float, size: int, color: Color) -> Label:
@@ -433,6 +440,7 @@ func _begin_run(is_daily: bool) -> void:
 	title_screen.visible = false
 	pause_screen.visible = false
 	howto_screen.visible = false
+	shop_screen.visible = false
 	gameover_layer.visible = false
 	_start_wave(1)
 	_update_hud()
@@ -461,6 +469,7 @@ func _to_title() -> void:
 	gameover_layer.visible = false
 	pause_screen.visible = false
 	howto_screen.visible = false
+	shop_screen.visible = false
 	title_screen.visible = true
 	title_screen.refresh_wallet()
 	_update_hud()
@@ -489,6 +498,14 @@ func _show_howto() -> void:
 
 func _hide_howto() -> void:
 	howto_screen.hide_screen()
+
+
+func _show_shop() -> void:
+	shop_screen.show_screen()
+
+
+func _hide_shop() -> void:
+	shop_screen.hide_screen()
 
 
 func _toggle_sound() -> void:
@@ -538,6 +555,10 @@ func _start_wave(n: int) -> void:
 		_show_banner("WAVE %d — %s" % [n, FLAVOR[(n - 1) % FLAVOR.size()]])
 		sfx.play("wave")
 	sfx.switch_tier(_tier_for(n))
+	if n >= 5:
+		_check_achievement("wave5")
+	if n >= 10:
+		_check_achievement("wave10")
 	_update_hud()
 
 
@@ -886,6 +907,7 @@ func _kill_rat(d: RatMissile) -> void:
 		_spawn_children(d.position, d.target, 2)
 	elif d.kind == RatMissile.Kind.KING:
 		Meta.stats["bosses"] = int(Meta.stats.get("bosses", 0)) + 1
+		_check_achievement("king_slayer")
 		_spawn_explosion(d.position, 90.0, true)
 		_spawn_children(d.position, d.target, 4)
 		_shake(14.0)
@@ -898,6 +920,10 @@ func _kill_rat(d: RatMissile) -> void:
 	elif r < BISCUIT_DROP_CHANCE + POWERUP_DROP_CHANCE:
 		_drop_powerup(d.position)
 	kills_run += 1
+	if kills_run >= 1:
+		_check_achievement("first_kill")
+	if kills_run >= 50:
+		_check_achievement("kills50")
 	_combo_milestone_check()
 	# Clutch: the last rat of the wave slows the world for a beat.
 	if rats.is_empty() and rats_to_spawn == 0 and state == State.PLAYING:
@@ -943,6 +969,22 @@ func _combo_milestone_check() -> void:
 		_show_banner("COMBO ×%d!" % (lvl + 1))
 		sfx.play("combo_up")
 		_vibrate(20)
+	if combo >= 5:
+		_check_achievement("combo5")
+	if combo >= 13:
+		_check_achievement("combo13")
+
+
+## Unlock an achievement once; celebrate with banner + chime + confetti.
+func _check_achievement(id: String) -> void:
+	if Meta.has_achievement(id):
+		return
+	Meta.achievements.append(id)
+	Meta.save_all()
+	var name := str(Meta.ACHIEVEMENTS.get(id, id)).split(" — ")[0]
+	_show_banner("TROPHY: " + name.to_upper())
+	sfx.play("unlock")
+	fx.confetti()
 
 
 func _fmt_mult(m: float) -> String:
@@ -1063,6 +1105,8 @@ func _game_over() -> void:
 	Meta.stats["best_combo"] = maxi(int(Meta.stats.get("best_combo", 0)), best_combo_run)
 	Meta.stats["biscuits_earned"] = int(Meta.stats.get("biscuits_earned", 0)) + biscuit_run
 	Meta.biscuits += biscuit_run
+	if Meta.biscuits >= 100:
+		_check_achievement("biscuits100")
 	if daily:
 		var ds := Meta.daily_seed()
 		if int(Meta.daily.get("date", 0)) != ds:
@@ -1107,6 +1151,8 @@ func _score(points: int) -> void:
 	score += points
 	if score > best:
 		best = score
+	if score >= 1000:
+		_check_achievement("score1000")
 	_update_hud()
 
 

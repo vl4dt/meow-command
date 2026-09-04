@@ -51,8 +51,10 @@ func _run() -> void:
 	var rat = main.rats[main.rats.size() - 1]
 	rat.speed = 0.0  # park it so the shot is fair
 	main._fire_at(rat.position)
+	# Look up by name (not object) so the lambda never captures a freed node.
+	var rat_name: String = rat.name
 	var killed := await _wait_until(
-		func(): return not is_instance_valid(rat) or not main.rats.has(rat),
+		func(): return main.rats.filter(func(d): return d.name == rat_name).is_empty(),
 		6000, "shot rat to be killed")
 	if not killed:
 		errors += 1

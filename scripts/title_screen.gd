@@ -66,10 +66,11 @@ func _build() -> void:
 		add_child(sub)
 
 	var cx := 1280.0 / 2.0 - 130.0
-	_add_button("PLAY", Vector2(cx, 300), func(): _game._begin_run(false))
-	_add_button("DAILY", Vector2(cx, 376), func(): _game._begin_run(true))
-	_add_button("HOW TO", Vector2(cx, 452), func(): _game._show_howto())
-	_sound_btn = _add_button("", Vector2(cx, 528), _toggle_sound)
+	_add_button("PLAY", Vector2(cx, 272), func(): _game._begin_run(false))
+	_add_button("DAILY", Vector2(cx, 344), func(): _game._begin_run(true))
+	_add_button("HOW TO", Vector2(cx, 416), func(): _game._show_howto())
+	_add_button("SHOP", Vector2(cx, 488), func(): _game._show_shop())
+	_sound_btn = _add_button("", Vector2(cx, 560), _toggle_sound)
 	_update_sound_btn()
 
 	_best_label = _make_label(26, 660, 22, Palette.UI_TEXT)
