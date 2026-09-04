@@ -2,7 +2,13 @@
 
 > **2026-09-04:** full game analysis + improvement roadmap (gaps found in code,
 > engagement/entertainment/value opportunities, Wave 1–3 priorities) — see
-> `ANALYSIS.md`.
+> `ANALYSIS.md`; hand-crafted art contract in `ART_SPECS.md`.
+>
+> **2026-09-04:** Batches 1–3 delivered: screens & flow, mobile hardening,
+> audio, juice, combat depth (Rat King, shells, weave), rich game-over,
+> economy (biscuits, power-ups, themes, skins, shop, 10 achievements, daily
+> challenge), asset drop-in pipeline, 1024 icon + 1280×720 frame capture.
+> All green through `verify.ps1`.
 
 Target: **Best Game** (primary), Design / Catvertising (stretch).
 Ship window: first public release **Aug 1 – Sep 30, 2026**; Devpost deadline
@@ -31,16 +37,16 @@ submission by **~Sep 15**.
 - [x] Docs: README.md, PLAN.md, PROJECTS.md entry
 - [x] Repo: GitHub `vl4dt/meow-command`
 
-### Phase 1 — Mobile-ready (next)
+### Phase 1 — Mobile-ready (mostly done 2026-09-04)
 
-- [ ] Touch input: tap-to-fire works with `InputEventScreenTouch`; verify
-	  `_unhandled_input` path; consider hold-to-aim
-- [ ] Layout: confirm `canvas_items` + `expand` stretch looks right in
-	  portrait (19.5:9) and landscape; HUD safe-area insets (notches)
+- [x] Touch input: tap-to-fire via touch→mouse emulation
+      (`emulate_mouse_from_touch`); verified in `_unhandled_input` path
+- [x] Layout: landscape lock + `canvas_items` + `expand`; 1280×720 base
 - [ ] Performance: 60 fps on a mid-range Android device; profile explosion
-	  count; cap simultaneous rats/explosions if needed
-- [ ] Pause on app focus loss; audio unlock on first touch (Android)
-- [ ] Optional: haptics on hits (Android `Input.vibrate`, iOS via plugin)
+	  count; cap simultaneous rats/explosions if needed (needs a device)
+- [x] Pause on app focus loss; audio unlock on first touch (Android)
+- [x] Optional: haptics on fire/kill (Android `Input.vibrate` via guarded
+	  dynamic call)
 
 ### Phase 2 — Monetization (RevenueCat)
 
@@ -49,7 +55,9 @@ submission by **~Sep 15**.
 - [ ] Products: Kitty Pack (cosmetic themes), extra packs, Remove Ads
 - [ ] Paywall screen (in-app, cute) + judge promo code path
 - [ ] Optional: RevenueCat Ads interstitial on game-over (Catvertising stretch)
-- [ ] Theme system: swap `palette.gd` + building/turret colors per pack
+- [x] Theme system: static-var `palette.gd` + Classic/Sakura/Midnight themes,
+      4 cat skins, in-game shop (biscuit currency) — RevenueCat packs map
+      onto the same theme/skin slots
 
 ### Phase 3 — Exports & store assets
 
@@ -57,7 +65,10 @@ submission by **~Sep 15**.
 	  + Galaxy Store listings
 - [ ] iOS: export on macOS, provisioning, App Store Connect listing
 - [ ] Desktop: Windows/macOS/Linux releases (local dev + itch.io)
-- [ ] Icon 1024×1024 (from `icon.svg`), screenshot 1179×2556 frameless
+- [x] Icon 1024×1024 — `tools/gen_icon.gd` → `assets/store/icon.png`
+      (project icon wired)
+- [ ] Screenshot 1179×2556 frameless (portrait) — base 1280×720 gameplay
+      frame captured at `assets/store/frame_capture.png`
 - [ ] Demo video ≤2 min (script → screen recording → edit)
 
 ### Phase 4 — Submit & grow
