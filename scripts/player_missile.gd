@@ -30,6 +30,13 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	var tex := Assets.tex("missile")
+	if tex != null:
+		var s := 18.0 / tex.get_width()
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(s, s))
+		draw_texture(tex, Vector2(-tex.get_width() / 2.0, -tex.get_height() / 2.0))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_circle(Vector2.ZERO, 7.0, Color(Palette.PLAYER_MISSILE, 0.3))
 	draw_circle(Vector2.ZERO, 4.0, Palette.PLAYER_MISSILE)
 	draw_circle(Vector2.ZERO, 1.6, Color("white"))

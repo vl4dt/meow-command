@@ -1,47 +1,110 @@
 extends Node
-## Cute procedural sound effects + a soft music loop, all generated in code
+## Cute procedural sound effects + 3-tier music, all generated in code
 ## (no audio assets needed). 16-bit mono WAVs rendered at startup.
+##
+## - 6-voice SFX pool so chain-pops don't chop each other.
+## - Music tiers (calm/upbeat/intense) escalate with the waves.
+## - unlock() must be called from the first user gesture (Android audio).
+## - Drop-in: res://assets/audio/<name>.ogg replaces any synthesized stream
+##   (launch, pop, explosion, city_hit, wave, game_over, combo_up, powerup,
+##   biscuit, boss, unlock, meow, music_calm, music_upbeat, music_intense).
+##   See ART_SPECS.md §6.
 
 const RATE := 22050
+const VOICES := 6
+const MUSIC_DB := -20.0
+const SFX_DB := -6.0
 
-var _player: AudioStreamPlayer
+var _players: Array[AudioStreamPlayer] = []
+var _voice := 0
 var _music: AudioStreamPlayer
 var _streams: Dictionary = {}
+var _unlocked := false
+var _sound_on := true
+var _tier: String = "calm"
 
 
 func _ready() -> void:
-	_player = AudioStreamPlayer.new()
-	_player.volume_db = -6.0
-	add_child(_player)
+	for i in VOICES:
+		var p := AudioStreamPlayer.new()
+		p.volume_db = SFX_DB
+		add_child(p)
+		_players.append(p)
 	_music = AudioStreamPlayer.new()
-	_music.volume_db = -20.0
+	_music.volume_db = MUSIC_DB
+	_music.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_music)
 	_build_streams()
-	start_music()
 
 
 func _exit_tree() -> void:
 	# Release stream references before the audio server shuts down
 	# (prevents AudioStreamWAV/PlaybackWAV leak warnings at exit).
 	_music.stop()
-	_player.stop()
+	for p in _players:
+		p.stop()
 	_music.stream = null
-	_player.stream = null
+	for p in _players:
+		p.stream = null
 	_streams.clear()
 
 
-func start_music() -> void:
-	var s: AudioStreamWAV = _streams.get("music")
-	if s:
-		_music.stream = s
-		_music.play(true)
+## Android audio unlock — call from the first user gesture (any tap/button).
+func unlock() -> void:
+	if _unlocked:
+		return
+	_unlocked = true
+	if _sound_on:
+		_play_music()
 
 
+## Master sound toggle (settings / title screen).
+func set_sound(on: bool) -> void:
+	_sound_on = on
+	if on:
+		if _unlocked:
+			_play_music()
+	else:
+		_music.stop()
+
+
+## Play an SFX by name on the next free voice.
 func play(name: String) -> void:
-	var s: AudioStreamWAV = _streams.get(name)
-	if s:
-		_player.stream = s
-		_player.play()
+	if not _sound_on or _players.is_empty():
+		return
+	var s := _stream(name)
+	if s == null:
+		return
+	var p: AudioStreamPlayer = _players[_voice]
+	_voice = (_voice + 1) % VOICES
+	p.stream = s
+	p.play()
+
+
+## Switch the music tier (calm / upbeat / intense).
+func switch_tier(tier: String) -> void:
+	if tier == _tier:
+		return
+	_tier = tier
+	_play_music()
+
+
+func _play_music() -> void:
+	if not _unlocked or not _sound_on:
+		return
+	var s := _stream("music_" + _tier)
+	if s == null:
+		return
+	_music.stream = s
+	_music.play(true)
+
+
+func _stream(name: String) -> AudioStream:
+	var a := Assets.audio(name)
+	if a != null:
+		return a
+	var s = _streams.get(name)
+	return s if s != null else null
 
 
 func _build_streams() -> void:
@@ -59,10 +122,75 @@ func _build_streams() -> void:
 		[329.63, 0.2, 0.45],
 		[261.63, 0.4, 0.45],
 	])
-	_streams["music"] = _music_stream()
+	_streams["combo_up"] = _tone_stream([
+		[659.25, 0.08, 0.4],
+		[880.0, 0.14, 0.45],
+	])
+	_streams["powerup"] = _tone_stream([
+		[440.0, 0.08, 0.4],
+		[554.37, 0.08, 0.4],
+		[659.25, 0.16, 0.45],
+	])
+	_streams["biscuit"] = _tone_stream([
+		[783.99, 0.07, 0.4],
+		[1174.66, 0.1, 0.4],
+	])
+	_streams["boss"] = _tone_stream([
+		[110.0, 0.25, 0.6, 55.0],
+		[82.41, 0.5, 0.55, 41.2],
+	])
+	_streams["unlock"] = _tone_stream([
+		[523.25, 0.1, 0.4],
+		[659.25, 0.1, 0.4],
+		[783.99, 0.1, 0.4],
+		[1046.5, 0.22, 0.45],
+	])
+	_streams["meow"] = _tone_stream([
+		[300.0, 0.22, 0.4, 560.0],
+		[520.0, 0.16, 0.35, 240.0],
+	])
+	_streams["music_calm"] = _music_stream(_melody_calm(), 0.16)
+	_streams["music_upbeat"] = _music_stream(_melody_upbeat(), 0.18)
+	_streams["music_intense"] = _music_stream(_melody_intense(), 0.2)
 
 
-# notes: array of [freq_hz, dur_s, vol, slide_to_hz?]
+# ------------------------------------------------------ melody definitions
+# [freq_hz, dur_s] pairs; 0 = rest. All loops are ~8s.
+
+func _melody_calm() -> Array:
+	return [
+		[523.25, 0.24], [0.0, 0.12], [659.25, 0.24], [783.99, 0.24],
+		[0.0, 0.12], [880.0, 0.24], [783.99, 0.24], [659.25, 0.24],
+		[587.33, 0.24], [0.0, 0.12], [523.25, 0.24], [659.25, 0.24],
+		[783.99, 0.24], [880.0, 0.24], [1046.5, 0.48], [0.0, 0.24],
+	]
+
+
+func _melody_upbeat() -> Array:
+	return [
+		[659.25, 0.14], [783.99, 0.14], [880.0, 0.14], [783.99, 0.14],
+		[659.25, 0.14], [587.33, 0.14], [659.25, 0.28], [0.0, 0.1],
+		[783.99, 0.14], [880.0, 0.14], [1046.5, 0.14], [880.0, 0.14],
+		[783.99, 0.14], [659.25, 0.14], [783.99, 0.28], [0.0, 0.1],
+		[880.0, 0.14], [1046.5, 0.14], [1174.66, 0.28], [0.0, 0.14],
+		[1046.5, 0.14], [880.0, 0.14], [783.99, 0.14], [659.25, 0.42],
+	]
+
+
+func _melody_intense() -> Array:
+	return [
+		[440.0, 0.1], [523.25, 0.1], [440.0, 0.1], [587.33, 0.1],
+		[659.25, 0.2], [587.33, 0.1], [523.25, 0.1], [440.0, 0.1],
+		[415.3, 0.1], [523.25, 0.1], [415.3, 0.1], [554.37, 0.1],
+		[622.25, 0.2], [554.37, 0.1], [493.88, 0.1], [415.3, 0.1],
+		[349.23, 0.1], [440.0, 0.1], [349.23, 0.1], [493.88, 0.1],
+		[554.37, 0.1], [622.25, 0.1], [659.25, 0.3], [0.0, 0.1],
+	]
+
+
+# ------------------------------------------------------ synthesis helpers
+
+## notes: array of [freq_hz, dur_s, vol, slide_to_hz?]
 func _tone_stream(notes: Array) -> AudioStreamWAV:
 	var out := PackedByteArray()
 	var phase := 0.0
@@ -115,14 +243,7 @@ func _noise_stream(dur: float, vol: float) -> AudioStreamWAV:
 	return _finalize(out)
 
 
-func _music_stream() -> AudioStreamWAV:
-	# A sleepy pentatonic lullaby loop: [freq, dur] pairs (0 = rest).
-	var melody: Array = [
-		[523.25, 0.24], [0.0, 0.12], [659.25, 0.24], [783.99, 0.24],
-		[0.0, 0.12], [880.0, 0.24], [783.99, 0.24], [659.25, 0.24],
-		[587.33, 0.24], [0.0, 0.12], [523.25, 0.24], [659.25, 0.24],
-		[783.99, 0.24], [880.0, 0.24], [1046.5, 0.48], [0.0, 0.24],
-	]
+func _music_stream(melody: Array, vol: float) -> AudioStreamWAV:
 	var out := PackedByteArray()
 	var phase := 0.0
 	for note in melody:
@@ -133,7 +254,7 @@ func _music_stream() -> AudioStreamWAV:
 			var s := 0.0
 			if freq > 0.0:
 				phase = fmod(phase + freq / float(RATE), 1.0)
-				s = sin(TAU * phase) * 0.16 * _envelope(i, n)
+				s = sin(TAU * phase) * vol * _envelope(i, n)
 			_append_sample(out, s)
 	var stream := _finalize(out)
 	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD

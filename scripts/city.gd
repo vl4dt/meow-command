@@ -9,6 +9,7 @@ const BUILDING_GAP := 10.0
 const BUILDING_HP := 3
 
 var buildings: Array = []  # {pos, w, h, hp, max_hp, color}
+var shielded := false  # City Shield power-up: immune + dome drawn
 
 
 func setup(x: float, ground_y: float, seed: int) -> void:
@@ -43,25 +44,52 @@ func target_points() -> Array[Vector2]:
 	return pts
 
 
-## Returns true if a living building took the hit.
+## Damages the NEAREST living building within radius. Returns true if a
+## building took the hit (false when shielded or nothing is in range).
 func damage_nearest(point: Vector2, radius: float) -> bool:
+	if shielded:
+		return false
+	var best_i := -1
+	var best_d := INF
 	for i in buildings.size():
 		var b: Dictionary = buildings[i]
 		if b["hp"] <= 0:
 			continue
 		var center: Vector2 = b["pos"] + Vector2(0, -b["h"] * 0.5)
-		if (center - point).length() < radius + b["w"] * 0.5:
-			b["hp"] -= 1
-			queue_redraw()
-			if b["hp"] <= 0:
-				building_destroyed.emit(b["pos"])
-			return true
-	return false
+		var d := (center - point).length()
+		if d < radius + b["w"] * 0.5 and d < best_d:
+			best_d = d
+			best_i = i
+	if best_i < 0:
+		return false
+	var b: Dictionary = buildings[best_i]
+	b["hp"] -= 1
+	queue_redraw()
+	if b["hp"] <= 0:
+		building_destroyed.emit(b["pos"])
+	return true
 
 
 func _draw() -> void:
 	for b in buildings:
 		_draw_building(b)
+	if shielded:
+		_draw_shield_dome()
+
+
+## City Shield power-up: a soft green dome over the whole cluster.
+func _draw_shield_dome() -> void:
+	var cx := 0.0
+	var min_y := 0.0
+	for b in buildings:
+		var pos: Vector2 = b["pos"]
+		cx += pos.x
+		min_y = minf(min_y, pos.y - b["h"] - 20.0)
+	cx /= float(maxi(1, buildings.size()))
+	var r := 110.0
+	var pulse := 0.5 + 0.1 * sin(Time.get_ticks_msec() * 0.004)
+	draw_arc(Vector2(cx, 0.0), r, PI, TAU, 32, Color(0.56, 0.84, 0.58, pulse), 3.0)
+	draw_circle(Vector2(cx, 0.0), r, Color(0.56, 0.84, 0.58, 0.1))
 
 
 func _draw_building(b: Dictionary) -> void:
@@ -71,6 +99,19 @@ func _draw_building(b: Dictionary) -> void:
 	var color: Color = b["color"]
 	if b["hp"] <= 0:
 		_draw_rubble(pos, w)
+		return
+	# Optional hand-crafted building (bottom-center anchor, see ART_SPECS.md)
+	var tex := Assets.tex("building")
+	if tex != null:
+		var scale := Vector2(w / tex.get_width(), h / tex.get_height())
+		draw_set_transform(Vector2.ZERO, 0.0, scale)
+		draw_texture(tex, Vector2((pos.x - w / 2.0) / scale.x, (pos.y - h) / scale.y))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		# Health hearts (keep the procedural UI on top of any art)
+		var hp: int = b["hp"]
+		for i in hp:
+			var hx := pos.x - (hp - 1) * 7.0 + i * 14.0
+			_draw_heart(Vector2(hx, pos.y - h - 34.0), 4.0, Palette.HEART)
 		return
 	# Body
 	draw_rect(Rect2(pos.x - w / 2.0, pos.y - h, w, h), color)
@@ -122,6 +163,13 @@ func _draw_heart(c: Vector2, s: float, color: Color) -> void:
 
 
 func _draw_rubble(pos: Vector2, w: float) -> void:
+	var tex := Assets.tex("rubble")
+	if tex != null:
+		var s := 1.6 * w / tex.get_width()
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(s, s))
+		draw_texture(tex, Vector2(pos.x / s - tex.get_width() / 2.0, pos.y / s - tex.get_height()))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_circle(pos + Vector2(-w * 0.28, -5.0), 5.0, Palette.RUBBLE)
 	draw_circle(pos + Vector2(0.0, -7.0), 6.5, Color(Palette.RUBBLE, 0.85))
 	draw_circle(pos + Vector2(w * 0.26, -4.0), 4.0, Color(Palette.RUBBLE, 0.9))

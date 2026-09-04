@@ -1,5 +1,9 @@
 # Meow Command — Build Plan
 
+> **2026-09-04:** full game analysis + improvement roadmap (gaps found in code,
+> engagement/entertainment/value opportunities, Wave 1–3 priorities) — see
+> `ANALYSIS.md`.
+
 Target: **Best Game** (primary), Design / Catvertising (stretch).
 Ship window: first public release **Aug 1 – Sep 30, 2026**; Devpost deadline
 **Sep 30, 2026 11:45 pm PDT**. Store review takes days → target store

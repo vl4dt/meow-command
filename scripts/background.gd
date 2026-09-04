@@ -6,6 +6,12 @@ const GROUND_Y := 664.0
 
 var _sky_tex: GradientTexture2D
 var _clouds: Array = []
+var sun_blink_t := 0.0  # easter egg: the sun blinks when tapped
+
+
+## Easter egg — called by game.gd when the sun is tapped.
+func sun_blink() -> void:
+	sun_blink_t = 1.0
 
 
 func _ready() -> void:
@@ -20,6 +26,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if sun_blink_t > 0.0:
+		sun_blink_t = maxf(0.0, sun_blink_t - delta * 2.0)
 	for c in _clouds:
 		var p: Vector2 = c["pos"]
 		p.x += c["speed"] * delta
@@ -44,13 +52,25 @@ func _make_sky() -> GradientTexture2D:
 
 
 func _draw() -> void:
+	# Optional hand-crafted full background (1280×720, no clouds — see
+	# ART_SPECS.md). Code-drawn clouds float on top of it.
+	var bg := Assets.tex("background")
+	if bg != null:
+		draw_texture_rect(bg, Rect2(Vector2.ZERO, SCREEN), true)
+		for c in _clouds:
+			_draw_cloud(c["pos"], c["scale"])
+		return
 	draw_texture_rect(_sky_tex, Rect2(Vector2.ZERO, SCREEN), true)
-	# Sleepy sun with a face
+	# Sleepy sun with a face (blinks when tapped)
 	var sun := Vector2(1120.0, 120.0)
 	draw_circle(sun, 52.0, Color(Palette.SUN, 0.35))
 	draw_circle(sun, 40.0, Palette.SUN)
-	draw_circle(sun + Vector2(-13, -6), 3.5, Palette.SUN_FACE)
-	draw_circle(sun + Vector2(13, -6), 3.5, Palette.SUN_FACE)
+	if sun_blink_t > 0.0:
+		draw_arc(sun + Vector2(-13, -6), 4.5, 0.0, TAU, 12, Palette.SUN_FACE, 2.5)
+		draw_arc(sun + Vector2(13, -6), 4.5, 0.0, TAU, 12, Palette.SUN_FACE, 2.5)
+	else:
+		draw_circle(sun + Vector2(-13, -6), 3.5, Palette.SUN_FACE)
+		draw_circle(sun + Vector2(13, -6), 3.5, Palette.SUN_FACE)
 	draw_arc(sun + Vector2(0, 4), 14.0, 0.4, TAU - 0.4, 24, Palette.SUN_FACE, 3.0)
 	# Rolling hills (bottom halves hidden by the ground band)
 	_draw_hill(Vector2(300, GROUND_Y + 30), 460.0, 150.0, Palette.HILL_FAR)
