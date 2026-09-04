@@ -105,9 +105,13 @@ with the biscuit currency — the RevenueCat packs map onto the same slots.
 - ✅ Asset pipeline: drop-in loader wired everywhere + 1024 icon +
   1280×720 gameplay frame captured
 - ✅ Headless verification gate green (`verify.ps1`)
+- ✅ Android export: debug + release APKs (arm64-v8a, `com.vl4dt.meowcommand`)
+  — verified on-device on an LG V60 ThinQ (Android 10): launch, rendering,
+  touch input, no crashes
 - ⬜ Hand-crafted art pass (specs in `ART_SPECS.md` — drop-in ready)
 - ⬜ RevenueCat SDK integration (IAP + optional Ads)
-- ⬜ Exports: Android (AAB), iOS (via macOS), desktop builds
+- ⬜ Store submission artifacts: AAB + release keystore (Play), iOS (via macOS),
+  desktop builds
 - ⬜ Store extras: 1179×2556 portrait screenshot, ≤2 min demo video
 
 ## Run & verify
@@ -129,6 +133,40 @@ headless gameplay simulation (title start, spawn/shoot/kill, shell 2-hit,
 turret landing damage, wave break, game over, restart) → 300-frame smoke run.
 It is sandbox-tolerant (redirects Godot user data into the project and
 captures output via `cmd /c` file redirection) — see the header comment.
+
+## Android export
+
+Requirements (all present on the dev machine):
+
+- Godot **4.7.2 stable** export templates
+  (`%APPDATA%\Godot\export_templates\4.7.2.stable\` — `android_debug.apk`,
+  `android_release.apk`, `android_source.zip`)
+- Android SDK (`ANDROID_HOME`) and JDK 17+ (`JAVA_HOME`)
+- `export_presets.cfg` — preset **"Android"**: package
+  `com.vl4dt.meowcommand`, arm64-v8a only, `VIBRATE` permission (haptics),
+  Godot's default debug keystore (`%APPDATA%\Godot\keystores\debug.keystore`,
+  alias `androiddebugkey`, password `android`)
+- Project setting `textures/vram_compression/import_etc2_astc=true`
+  (mandatory — Godot refuses Android export without ETC2/ASTC)
+
+```
+# Debug APK (device testing)
+godot --headless --path . --export-debug "Android" builds/meow-command-android-debug.apk
+
+# Release APK (re-sign with a real release keystore before Play submission)
+godot --headless --path . --export-release "Android" builds/meow-command-android-release.apk
+
+# Install + launch on a connected phone (adb)
+adb install -r -t builds/meow-command-android-debug.apk
+adb shell monkey -p com.vl4dt.meowcommand 1
+adb shell screencap -p /sdcard/_shot.png
+adb pull /sdcard/_shot.png
+```
+
+**Verified 2026-09-04 on an LG V60 ThinQ** (LM-V600, Android 10, arm64-v8a):
+launches cleanly, renders title screen + live gameplay (Wave 1), touch input
+works (tap → fire), no crashes in logcat. ~27 MB APK. Note: Play Store
+submission needs an AAB + a proper release keystore (see Phase 3 / bi8.5).
 
 ## Art pipeline (drop-in)
 
@@ -165,3 +203,4 @@ Dated entries — installs, revenue, experiments, learnings.
 | 2026-09-04 | Batch 1: screens, mobile, audio, juice, combat depth, rich game-over (bi8.7–bi8.11, bi8.13) | +9 scripts, ~2350 lines | Full meta layer (Meta/Assets) first — every later feature hangs off it |
 | 2026-09-04 | Batch 2: themes, skins, shop, 10 achievements (bi8.12) | +1 screen, palette→theme system | Static-var palette makes retheming a one-call runtime swap |
 | 2026-09-04 | Batch 3: 1024 icon + 1280×720 frame capture (bi8.14) | 2 store assets | Icon generator is pure Image math — reproducible, zero dependencies |
+| 2026-09-04 | Android export + on-device verification (bi8.5.1) | 27 MB debug + release APKs | Godot 4.7.2 templates ship `android_source.zip` (no gradle step at export); ETC2/ASTC project setting is mandatory for Android export; debug keystore auto-reuse works |
