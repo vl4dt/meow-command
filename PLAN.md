@@ -40,7 +40,7 @@ submission by **~Sep 15**.
 ### Phase 1 — Mobile-ready (mostly done 2026-09-04)
 
 - [x] Touch input: tap-to-fire via touch→mouse emulation
-      (`emulate_mouse_from_touch`); verified in `_unhandled_input` path
+	  (`emulate_mouse_from_touch`); verified in `_unhandled_input` path
 - [x] Layout: landscape lock + `canvas_items` + `expand`; 1280×720 base
 - [ ] Performance: 60 fps on a mid-range Android device; profile explosion
 	  count; cap simultaneous rats/explosions if needed (needs a device)
@@ -56,8 +56,8 @@ submission by **~Sep 15**.
 - [ ] Paywall screen (in-app, cute) + judge promo code path
 - [ ] Optional: RevenueCat Ads interstitial on game-over (Catvertising stretch)
 - [x] Theme system: static-var `palette.gd` + Classic/Sakura/Midnight themes,
-      4 cat skins, in-game shop (biscuit currency) — RevenueCat packs map
-      onto the same theme/skin slots
+	  4 cat skins, in-game shop (biscuit currency) — RevenueCat packs map
+	  onto the same theme/skin slots
 
 ### Phase 3 — Exports & store assets
 
@@ -66,9 +66,9 @@ submission by **~Sep 15**.
 - [ ] iOS: export on macOS, provisioning, App Store Connect listing
 - [ ] Desktop: Windows/macOS/Linux releases (local dev + itch.io)
 - [x] Icon 1024×1024 — `tools/gen_icon.gd` → `assets/store/icon.png`
-      (project icon wired)
+	  (project icon wired)
 - [ ] Screenshot 1179×2556 frameless (portrait) — base 1280×720 gameplay
-      frame captured at `assets/store/frame_capture.png`
+	  frame captured at `assets/store/frame_capture.png`
 - [ ] Demo video ≤2 min (script → screen recording → edit)
 
 ### Phase 4 — Submit & grow
